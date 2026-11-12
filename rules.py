@@ -19,16 +19,17 @@ COLUMNS = [
 만료임박일수 = 30
 
 
-# ---------- 하자대장 읽기·저장 ----------
+# ---------- 하자대장 읽기·저장 (저장 위치는 db.py가 맡음) ----------
 def load_ledger() -> pd.DataFrame:
-    if not 대장파일.exists():
-        return pd.DataFrame(columns=COLUMNS)
-    df = pd.read_csv(대장파일, encoding="utf-8-sig", dtype=str).fillna("")
-    return df[COLUMNS]
+    import db
+
+    return db.load_ledger()[COLUMNS]
 
 
 def save_ledger(df: pd.DataFrame) -> None:
-    df[COLUMNS].to_csv(대장파일, index=False, encoding="utf-8-sig")
+    import db
+
+    db.save_ledger(df[COLUMNS])
 
 
 # ---------- 접수번호 ----------
