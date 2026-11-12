@@ -33,11 +33,37 @@ def process_folder(ledger: pd.DataFrame) -> pd.DataFrame:
     return ledger
 
 
+def process_db(ledger: pd.DataFrame):
+    """DB 접수 테이블의 미처리 건. 발견일을 접수일로, 위치·내용을 원문으로 쓴다."""
+    import db
+
+    done = []  # (접수 id, 접수번호)
+    for _, r in db.load_unprocessed().iterrows():
+        발견일 = str(r["발견일"])[:10]
+        원문 = (
+            f"[웹 접수] 발견일: {발견일}\n"
+            f"접수자: {r['접수자']}\n부서·매장: {r['부서'] or ''}\n"
+            f"위치: {r['위치'] or ''}\n내용: {r['내용']}"
+        )
+        print(f"  정리 중: 웹 접수 {r['id']}번")
+        result = ai.ask_json(지침, 원문)
+        result["접수일"] = 발견일
+        row = rules.build_row(result, f"웹접수-{r['id']}", ledger)
+        ledger = pd.concat([ledger, pd.DataFrame([row])], ignore_index=True)
+        done.append((r["id"], row["접수번호"]))
+    return ledger, done
+
+
 def main():
+    import db
+
     ledger = rules.load_ledger()
     before = len(ledger)
     ledger = process_folder(ledger)
-    rules.save_ledger(ledger)
+    ledger, done = process_db(ledger)
+    rules.save_ledger(ledger)  # 대장 저장이 끝난 뒤에 접수를 처리완료로
+    for intake_id, no in done:
+        db.mark_processed(intake_id, no)
 
     new = ledger.iloc[before:]
     print(f"\n새로 등록 {len(new)}건 / 대장 전체 {len(ledger)}건")

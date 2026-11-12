@@ -105,6 +105,36 @@ def save_ledger(df: pd.DataFrame) -> None:
             con.execute(sql, rows)
 
 
+# ---------- 접수 (접수 화면 → run.py) ----------
+def add_intake(발견일, 접수자: str, 부서: str, 위치: str, 내용: str) -> int:
+    """접수 화면에서 받은 1건을 미처리로 저장하고 접수 번호(id)를 돌려준다."""
+    init()
+    with engine().begin() as con:
+        return con.execute(
+            text('INSERT INTO "접수" ("발견일", "접수자", "부서", "위치", "내용") '
+                 "VALUES (:d, :n, :b, :w, :c) RETURNING id"),
+            {"d": 발견일, "n": 접수자, "b": 부서, "w": 위치, "c": 내용},
+        ).scalar_one()
+
+
+def load_unprocessed() -> pd.DataFrame:
+    init()
+    with engine().connect() as con:
+        return pd.read_sql(
+            text('SELECT id, "발견일", "접수자", "부서", "위치", "내용" FROM "접수" '
+                 "WHERE \"처리상태\" = '미처리' ORDER BY id"),
+            con,
+        )
+
+
+def mark_processed(intake_id: int, 접수번호: str) -> None:
+    with engine().begin() as con:
+        con.execute(
+            text('UPDATE "접수" SET "처리상태" = \'처리완료\', "접수번호" = :no WHERE id = :id'),
+            {"no": 접수번호, "id": int(intake_id)},
+        )
+
+
 def counts() -> dict:
     init()
     with engine().connect() as con:
